@@ -6,42 +6,90 @@ import (
 	"sync/atomic"
 )
 
-// DynamicHandler is a middleware handler that supports hot-swapping configuration
-// at runtime. It manages dynamic log leveling, formatting, masking, and attribute removal.
+// DynamicHandler is a middleware-style slog.Handler implementation that supports
+// dynamic reconfiguration at runtime. It allows hot-swapping log level, output format,
+// masking rules, attribute removal rules, and level name customization.
+//
+// To reduce per-log-call overhead, the handler caches the static handler chain
+// (base handler + WithAttrs + WithGroup). Only context-derived attributes are applied
+// dynamically on each call, because they depend on the incoming context.
+//
+// Attribute priority order remains:
+//  1. Context-derived attributes (dynamic, highest priority)
+//  2. Logger.With(...) attributes (cached)
+//  3. Attributes added directly in the log call (slog.Record)
 type DynamicHandler struct {
-	cfg    *atomic.Pointer[Config]
+	cfg *atomic.Pointer[Config]
+
 	attrs  []slog.Attr
 	groups []string
+
+	// cachedHandler stores the fully constructed static handler chain:
+	//   baseHandler -> WithAttrs(attrs) -> WithGroup(groups)
+	// It is rebuilt only when configuration, attrs, or groups change.
+	cachedHandler atomic.Pointer[slog.Handler]
+
+	// cachedConfigVersion tracks the last configuration pointer used to build the cache.
+	// If cfg.Load() returns a different pointer, the cache is invalidated.
+	cachedConfigVersion atomic.Pointer[Config]
 }
 
-// Enabled reports whether the handler handles records at the given level.
-// It fetches the current threshold from the atomic configuration.
+// Enabled reports whether the record should be logged based on the current
+// dynamic log level stored in the atomic configuration.
 func (h *DynamicHandler) Enabled(ctx context.Context, level slog.Level) bool {
 	return level >= h.cfg.Load().Level
 }
 
-// Handle processes the log record. It performs the following steps:
-// 1. Extracts registered keys from the context.
-// 2. Applies masking and removal rules via ReplaceAttr.
-// 3. Selects the base handler (JSON or Text) based on current config.
-// 4. Passes accumulated attributes and groups to the underlying handler.
+// Handle processes a log record using a cached static handler chain.
+// Only context-derived attributes are applied dynamically.
 func (h *DynamicHandler) Handle(ctx context.Context, r slog.Record) error {
 	cfg := h.cfg.Load()
 
-	// Automatically extract and log registered keys from context
+	// Step 1: Collect context-derived attributes (highest priority)
+	// This allows middleware to inject IDs into context that automatically appear in logs.
+	var ctxAttrs []slog.Attr
 	for _, key := range cfg.ContextKeys {
 		if val := ctx.Value(key); val != nil {
-			r.AddAttrs(slog.Any(key, val))
+			ctxAttrs = append(ctxAttrs, slog.Any(key, val))
 		}
 	}
 
-	// Prepare options for the underlying handler based on current config
+	// Step 2: Get or rebuild the cached static handler chain
+	base := h.getOrBuildCachedHandler(cfg)
+
+	// Step 3: Apply context attributes (highest priority)
+	if len(ctxAttrs) > 0 {
+		base = base.WithAttrs(ctxAttrs)
+	}
+
+	// Step 4: Forward the record to the underlying handler
+	return base.Handle(ctx, r)
+}
+
+// getOrBuildCachedHandler returns the cached handler chain if valid,
+// otherwise rebuilds it and updates the cache.
+//
+// Cached chain includes:
+//   - JSON/Text handler
+//   - ReplaceAttr
+//   - WithAttrs(attrs)
+//   - WithGroup(groups)
+//
+// Context attributes are NOT cached.
+func (h *DynamicHandler) getOrBuildCachedHandler(cfg *Config) slog.Handler {
+	// Fast path: if config pointer matches and cache exists — return it
+	if h.cachedConfigVersion.Load() == cfg {
+		if cached := h.cachedHandler.Load(); cached != nil {
+			return *cached
+		}
+	}
+
+	// Slow path: rebuild the handler chain
 	hOpts := &slog.HandlerOptions{
 		Level:       cfg.Level,
 		ReplaceAttr: h.getReplaceAttr(cfg),
 	}
 
-	// Initialize the base handler according to the current format
 	var base slog.Handler
 	if cfg.Format == FormatJSON {
 		base = slog.NewJSONHandler(cfg.Output, hOpts)
@@ -49,25 +97,30 @@ func (h *DynamicHandler) Handle(ctx context.Context, r slog.Record) error {
 		base = slog.NewTextHandler(cfg.Output, hOpts)
 	}
 
-	// Forward accumulated attributes to the base handler
+	// Apply WithAttrs (Logger.With(...) attributes)
 	if len(h.attrs) > 0 {
 		base = base.WithAttrs(h.attrs)
 	}
 
-	// Forward accumulated groups to the base handler
+	// Apply WithGroup (Logger.WithGroup(...) groups)
 	for _, g := range h.groups {
 		base = base.WithGroup(g)
 	}
 
-	return base.Handle(ctx, r)
+	// Store in cache
+	h.cachedHandler.Store(&base)
+	h.cachedConfigVersion.Store(cfg)
+
+	return base
 }
 
-// WithAttrs returns a new DynamicHandler with the additional attributes.
-// This ensures that Logger.With() calls work correctly.
+// WithAttrs returns a new DynamicHandler with additional attributes appended.
+// Cache is invalidated because the handler chain changes.
 func (h *DynamicHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 	newAttrs := make([]slog.Attr, len(h.attrs)+len(attrs))
 	copy(newAttrs, h.attrs)
 	copy(newAttrs[len(h.attrs):], attrs)
+
 	return &DynamicHandler{
 		cfg:    h.cfg,
 		attrs:  newAttrs,
@@ -75,12 +128,13 @@ func (h *DynamicHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 	}
 }
 
-// WithGroup returns a new DynamicHandler with the given group name.
-// This ensures that Logger.WithGroup() calls work correctly.
+// WithGroup returns a new DynamicHandler with an additional attribute group.
+// Cache is invalidated because the handler chain changes.
 func (h *DynamicHandler) WithGroup(name string) slog.Handler {
 	newGroups := make([]string, len(h.groups)+1)
 	copy(newGroups, h.groups)
 	newGroups[len(h.groups)] = name
+
 	return &DynamicHandler{
 		cfg:    h.cfg,
 		attrs:  h.attrs,
@@ -88,22 +142,27 @@ func (h *DynamicHandler) WithGroup(name string) slog.Handler {
 	}
 }
 
-// getReplaceAttr returns a closure for attribute transformation.
-// It handles field removal, data masking, and level name customization.
+// getReplaceAttr returns a transformation function used by slog.HandlerOptions.
+// It performs:
+//
+//	Attribute removal (RemoveKeys)
+//	Attribute masking (MaskKeys)
+//	Level name customization (LevelNames)
 func (h *DynamicHandler) getReplaceAttr(cfg *Config) func([]string, slog.Attr) slog.Attr {
 	return func(groups []string, a slog.Attr) slog.Attr {
-		// Handle field removal
+
+		// Attribute removal: Check if the key is in the removal set
 		if _, shouldRemove := cfg.RemoveKeys[a.Key]; shouldRemove {
 			return slog.Attr{}
 		}
 
-		// Handle data masking
+		// Attribute masking: Apply data redaction rules
 		if mType, ok := cfg.MaskKeys[a.Key]; ok {
 			a.Value = slog.AnyValue(cfg.Masker.Mask(a.Value.Any(), mType))
 			return a
 		}
 
-		// Handle level name customization
+		// Level name customization: Transform log level values to custom strings
 		if a.Key == slog.LevelKey {
 			if lvl, ok := a.Value.Any().(slog.Level); ok {
 				a.Value = slog.StringValue(getLevelName(lvl, cfg.LevelNames))
