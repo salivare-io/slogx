@@ -1,6 +1,6 @@
-# Slogx1: Динамический и Безопасный Логгер
+# Slogx: Динамический и Безопасный Логгер
 
-`Slogx1` — это продвинутая обертка над стандартным пакетом `log/slog` в Go (версии 1.21+). Она разработана для систем, где требуется изменять настройки логов (уровень, формат, маскирование) прямо во время работы приложения (runtime) без перезагрузки.
+`Slogx` — это продвинутая обертка над стандартным пакетом `log/slog` в Go (версии 1.21+). Она разработана для систем, где требуется изменять настройки логов (уровень, формат, маскирование) прямо во время работы приложения (runtime) без перезагрузки.
 
 ## Ключевые возможности
 
@@ -33,16 +33,16 @@ import (
 
 func main() {
 	// Инициализируем логгер с использованием цепочки правил (Builder)
-	log := logger.New(
-		logger.WithLevel(logger.LevelTrace),
-		logger.WithContextKeys("trace_id", "request_id"),
+	log := slogx.New(
+		slogx.WithLevel(slogx.LevelTrace),
+		slogx.WithContextKeys("trace_id", "request_id"),
 		// Используем MaskRules для группировки настроек маскирования
-		logger.WithMaskRules(logger.NewMaskRules().
-			Add("email", logger.MaskEmail).
-			Add("phone", logger.MaskPhone),
+		slogx.WithMaskRules(slogx.NewMaskRules().
+			Add("email", slogx.MaskEmail).
+			Add("phone", slogx.MaskPhone),
 		),
 		// Простое перечисление полей для удаления
-		logger.WithRemoval("password", "session_token"),
+		slogx.WithRemoval("password", "session_token"),
 	)
 
 	// Добавляем данные в контекст
