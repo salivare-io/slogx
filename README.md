@@ -17,7 +17,7 @@
 ### Установка
 
 ```bash
-go get github.com/salivare-io/slogx@lates
+go get github.com/salivare-io/slogx@latest
 ```
 
 ## Базовый пример
