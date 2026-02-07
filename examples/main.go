@@ -23,7 +23,12 @@ func main() {
 		),
 
 		//Just list the keys to delete with a comma (Variadic)
-		slogx.WithRemoval("password", "session_token", "auth_cookie"),
+		slogx.WithRemoval(
+			slogx.NewRemovalSet().
+				Add("password").
+				Add("session_token").
+				Add("auth_cookie"),
+		),
 
 		// Auto-context extraction
 		slogx.WithContextKeys("trace_id", "request_id"),

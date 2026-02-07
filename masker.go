@@ -31,6 +31,30 @@ type Masker interface {
 // with built-in rules for common sensitive data types.
 type DefaultMasker struct{}
 
+// MaskMap associates attribute keys with masking strategies.
+type MaskMap map[string]MaskType
+
+// MaskRules is a fluent builder for masking configuration.
+type MaskRules struct {
+	rules MaskMap
+}
+
+// NewMaskRules creates a new builder.
+func NewMaskRules() *MaskRules {
+	return &MaskRules{rules: make(MaskMap)}
+}
+
+// Add registers a key with a masking strategy.
+func (r *MaskRules) Add(key string, mType MaskType) *MaskRules {
+	r.rules[key] = mType
+	return r
+}
+
+// Keys exposes the underlying map.
+func (r *MaskRules) Keys() MaskMap {
+	return r.rules
+}
+
 // Mask processes the input value based on the specified MaskType.
 // It converts the value to a string representation before applying redaction rules.
 func (m *DefaultMasker) Mask(value any, mType MaskType) any {

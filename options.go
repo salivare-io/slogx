@@ -10,9 +10,6 @@ import (
 // Format defines the output format for the logger (Text or JSON).
 type Format int
 
-// MaskMap is a map that associates attribute keys with their corresponding masking strategies.
-type MaskMap map[string]MaskType
-
 // RemoveMap is a set of attribute keys that should be completely excluded from the logs.
 type RemoveMap map[string]struct{}
 
@@ -22,22 +19,6 @@ const (
 	// FormatJSON represents a structured JSON output format.
 	FormatJSON
 )
-
-// MaskRules provides a fluent interface to build and group masking configurations.
-type MaskRules struct {
-	rules MaskMap
-}
-
-// NewMaskRules creates a new instance of MaskRules builder.
-func NewMaskRules() *MaskRules {
-	return &MaskRules{rules: make(MaskMap)}
-}
-
-// Add associates a specific key with a MaskType.
-func (r *MaskRules) Add(key string, mType MaskType) *MaskRules {
-	r.rules[key] = mType
-	return r
-}
 
 // Config represents the atomic logger configuration state.
 // It includes level management, formatting, and data sanitization rules.
@@ -154,10 +135,10 @@ func WithMasker(m Masker) Option {
 	}
 }
 
-// WithRemoval specifies attribute keys that should be omitted from the output.
-func WithRemoval(keys ...string) Option {
+// WithRemoval registers all keys from a RemovalSet for removal.
+func WithRemoval(set *RemovalSet) Option {
 	return func(o *options) {
-		for _, k := range keys {
+		for _, k := range set.Keys() {
 			o.initialConfig.RemoveKeys[k] = struct{}{}
 		}
 	}

@@ -41,8 +41,12 @@ func main() {
 			Add("email", slogx.MaskEmail).
 			Add("phone", slogx.MaskPhone),
 		),
-		// Простое перечисление полей для удаления
-		slogx.WithRemoval("password", "session_token"),
+		// Удаление полей
+		slogx.WithRemoval(
+			slogx.NewRemovalSet().
+				Add("password").
+				Add("token"),
+		),
 	)
 
 	// Добавляем данные в контекст
@@ -79,8 +83,14 @@ log.UpdateConfig(func(c *logger.Config) {
 ### Удаление полей и хелперы
 #### Гарантируйте отсутствие паролей в логах и используйте типизированные ошибки:
 ```go
-log := logger.New(
-    logger.WithRemoval("password", "token", "cookie", "secret_key"),
+// Удаление полей
+
+logger := slogx.New(
+    slogx.WithRemoval(
+        slogx.NewRemovalSet().
+            Add("password").
+            Add("token"),
+    ),
 )
 
 // Использование хелпера для ошибок
