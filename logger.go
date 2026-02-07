@@ -39,6 +39,22 @@ func New(opts ...Option) *Logger {
 	}
 }
 
+// With returns a derived slogx.Logger while preserving shared config.
+func (l *Logger) With(args ...any) *Logger {
+	return &Logger{
+		Logger: l.Logger.With(args...),
+		cfgPtr: l.cfgPtr,
+	}
+}
+
+// WithGroup returns a grouped slogx.Logger that keeps the same config pointer.
+func (l *Logger) WithGroup(name string) *Logger {
+	return &Logger{
+		Logger: l.Logger.WithGroup(name),
+		cfgPtr: l.cfgPtr,
+	}
+}
+
 // UpdateConfig allows thread-safe, atomic updates to the logger's configuration.
 // It uses a copy-on-write strategy by cloning the current config and applying the provided function.
 func (l *Logger) UpdateConfig(fn func(*Config)) {
