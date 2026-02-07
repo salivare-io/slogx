@@ -13,8 +13,12 @@ const (
 )
 
 var defaultLevelNames = LevelNames{
-	LevelTrace: "TRACE",
-	LevelFatal: "FATAL",
+	LevelTrace:      "TRACE",
+	slog.LevelDebug: "DEBUG",
+	slog.LevelInfo:  "INFO",
+	slog.LevelWarn:  "WARN",
+	slog.LevelError: "ERROR",
+	LevelFatal:      "FATAL",
 }
 
 // getLevelName восстанавливает имя: ищет в кастомных, иначе берет стандартное
