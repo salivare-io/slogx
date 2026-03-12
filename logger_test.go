@@ -28,7 +28,7 @@ func TestLogger_UpdateConfig(t *testing.T) {
 	)
 
 	l.Info("invisible")
-	assert.Empty(t, buf.String(), "INFO лог не должен был напечататься")
+	assert.Empty(t, buf.String(), "INFO log should not be printed")
 
 	l.Error("visible error")
 	assert.Contains(t, buf.String(), "visible error")
@@ -40,7 +40,7 @@ func TestLogger_FormatSwitch(t *testing.T) {
 
 	l.Info("text mode")
 	assert.Contains(t, buf.String(), "level=INFO")
-	assert.NotContains(t, buf.String(), "{") // Не JSON
+	assert.NotContains(t, buf.String(), "{") // Not JSON
 	buf.Reset()
 
 	l.UpdateConfig(

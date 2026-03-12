@@ -17,7 +17,7 @@ var defaultLevelNames = LevelNames{
 	LevelFatal: "FATAL",
 }
 
-// getLevelName восстанавливает имя: ищет в кастомных, иначе берет стандартное
+// getLevelName resolves a level name using custom names first, then defaults.
 func getLevelName(l slog.Level, customNames LevelNames) string {
 	if name, ok := customNames[l]; ok {
 		return name
