@@ -22,7 +22,7 @@ func main() {
 				Add("card_number", slogx.MaskCard),
 		),
 
-		//Just list the keys to delete with a comma (Variadic)
+		// Just list the keys to delete with a comma (Variadic)
 		slogx.WithRemoval(
 			slogx.NewRemovalSet().
 				Add("password").
@@ -71,10 +71,14 @@ func main() {
 	fmt.Println("\n Логгер внутри контекста ")
 	ctxWithLogger := slogx.ToContext(ctx, log)
 	doWork(ctxWithLogger)
+
+	// Empty logger example
+	logNop := slogx.NewNop()
+	logNop.InfoContext(ctx, "This log will not be extracted as the nop-logger is used")
 }
 
 func doWork(ctx context.Context) {
-	// Извлекаем логгер. Если его нет, FromContext вернет безопасный дефолтный логгер
+	// Extract logger. If missing, FromContext returns a safe default logger.
 	log := slogx.FromContext(ctx)
 	log.InfoContext(ctx, "Функция doWork выполнена")
 }
