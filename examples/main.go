@@ -71,6 +71,10 @@ func main() {
 	fmt.Println("\n Логгер внутри контекста ")
 	ctxWithLogger := slogx.ToContext(ctx, log)
 	doWork(ctxWithLogger)
+
+	// Empty logger example
+	logNop := slogx.NewNop()
+	logNop.InfoContext(ctx, "This log will not be extracted as the nop-logger is used")
 }
 
 func doWork(ctx context.Context) {

@@ -2,6 +2,7 @@ package slogx
 
 import (
 	"context"
+	"io"
 	"log/slog"
 	"os"
 	"sync/atomic"
@@ -88,6 +89,11 @@ func (l *Logger) FatalContext(ctx context.Context, msg string, args ...any) {
 func SetupDefault(opts ...Option) {
 	l := New(opts...)
 	slog.SetDefault(l.Logger)
+}
+
+// NewNop creates a logger that discards all output.
+func NewNop() *Logger {
+	return New(WithOutput(io.Discard))
 }
 
 // Err is a helper function that creates a structured slog.Attr for an error.

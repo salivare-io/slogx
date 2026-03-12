@@ -97,6 +97,10 @@ logger := slogx.New(
 log.Error("db connection failed", logger.Err(err))
 
 ```
+#### Заглушка для тестов
+```go
+log := slogx.NewNop()
+```
 ## Архитектура проекта
 * logger.go — Конструктор, методы Trace/Fatal и управление атомарным конфигом.
 * handler.go — DynamicHandler, обеспечивающий работу WithAttrs, WithGroup и подмену формата на лету.
