@@ -5,10 +5,13 @@ import (
 	"strings"
 )
 
+// LevelNames maps log levels to their custom string representations.
 type LevelNames map[slog.Level]string
 
 const (
+	// LevelTrace represents the trace level of logging.
 	LevelTrace = slog.Level(-8)
+	// LevelFatal represents the fatal level of logging.
 	LevelFatal = slog.Level(12)
 )
 

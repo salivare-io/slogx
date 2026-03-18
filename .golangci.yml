@@ -1,0 +1,26 @@
+version: 2
+
+run:
+  timeout: 5m
+  go: "1.23"
+  tests: true
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - revive
+    - staticcheck
+    - unused
+
+linters-settings:
+  errcheck:
+    check-type-assertions: true
+    check-blank: true
+  revive:
+    rules:
+      - name: comment-on-exported
+
+exclude_files:
+  - examples/main.go
