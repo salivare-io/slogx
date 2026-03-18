@@ -1,3 +1,4 @@
+// This is the main package for the example application.
 package main
 
 import (
@@ -39,8 +40,12 @@ func main() {
 
 	// Working with context
 	ctx := context.Background()
-	ctx = context.WithValue(ctx, "trace_id", "tid_999")
-	ctx = context.WithValue(ctx, "request_id", "req_777")
+	type TraceIDKey struct{}
+
+	ctx = context.WithValue(ctx, TraceIDKey{}, "tid_999")
+	type RequestIDKey struct{}
+
+	ctx = context.WithValue(ctx, RequestIDKey{}, "req_777")
 
 	fmt.Println("Текстовый формат и маскирование (Builder)")
 	log.InfoContext(

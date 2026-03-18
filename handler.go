@@ -36,7 +36,7 @@ type DynamicHandler struct {
 
 // Enabled reports whether the record should be logged based on the current
 // dynamic log level stored in the atomic configuration.
-func (h *DynamicHandler) Enabled(ctx context.Context, level slog.Level) bool {
+func (h *DynamicHandler) Enabled(_ context.Context, level slog.Level) bool {
 	return level >= h.cfg.Load().Level
 }
 
@@ -149,7 +149,7 @@ func (h *DynamicHandler) WithGroup(name string) slog.Handler {
 //	Attribute masking (MaskKeys)
 //	Level name customization (LevelNames)
 func (h *DynamicHandler) getReplaceAttr(cfg *Config) func([]string, slog.Attr) slog.Attr {
-	return func(groups []string, a slog.Attr) slog.Attr {
+	return func(_ []string, a slog.Attr) slog.Attr {
 
 		// Attribute removal: Check if the key is in the removal set
 		if _, shouldRemove := cfg.RemoveKeys[a.Key]; shouldRemove {
